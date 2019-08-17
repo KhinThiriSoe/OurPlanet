@@ -35,9 +35,9 @@ import android.arch.lifecycle.ViewModel
 import android.util.Log
 import com.raywenderlich.android.ourplanet.model.EOCategory
 import com.raywenderlich.android.ourplanet.model.EONET
+import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
-import io.reactivex.rxkotlin.Observables
 import io.reactivex.rxkotlin.addTo
 import io.reactivex.rxkotlin.subscribeBy
 import io.reactivex.schedulers.Schedulers
@@ -67,19 +67,45 @@ class CategoriesViewModel : ViewModel() {
 //            }
 //            .addTo(disposables)
 
-        val downloadedEvents = EONET.fetchEvents()
+        val downloadedEvents = Observable.merge(eoCategories
+            .flatMap { categories ->
+                Observable.fromIterable(
+                    categories.map { category ->
+                        EONET.fetchEvents(category)
+                    }
+                )
 
-        val updatedCategories = Observables
-            .combineLatest(eoCategories, downloadedEvents) { categoriesResponse, eventsResponse ->
-                categoriesResponse.map { category ->
-                    val cat = category.copy()
-                    cat.events.addAll(eventsResponse.filter {
-                        it.categories.contains(cat.id)
-                    })
-                    cat
+            }, 2)
+
+        val updatedCategories = eoCategories.flatMap { categories ->
+            downloadedEvents.scan(categories) { updated, events ->
+                updated.map { category ->
+                    val eventsForCategory = EONET.filterEventsForCategory(events, category)
+
+                    if (!eventsForCategory.isEmpty()) {
+                        val cat = category.copy()
+                        cat.events.addAll(eventsForCategory.filter { it.closeDate != null })
+                        cat
+                    } else {
+                        category
+                    }
                 }
             }
+        }
 
+
+
+        //        val updatedCategories = Observables
+//            .combineLatest(eoCategories, downloadedEvents) { categoriesResponse, eventsResponse ->
+//                categoriesResponse.map { category ->
+//                    val cat = category.copy()
+//                    cat.events.addAll(eventsResponse.filter {
+//                        it.categories.contains(cat.id)
+//                    })
+//                    cat
+//                }
+//            }
+//
         eoCategories.concatWith(updatedCategories)
             .subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
@@ -91,6 +117,7 @@ class CategoriesViewModel : ViewModel() {
                     Log.d("CategoriesViewModel" , it.localizedMessage)
                 }
             ).addTo(disposables)
+
     }
 
     override fun onCleared() {
