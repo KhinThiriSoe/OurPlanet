@@ -35,6 +35,7 @@ import android.arch.lifecycle.ViewModelProviders
 import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.LinearLayoutManager
+import android.view.View
 import kotlinx.android.synthetic.main.activity_categories.*
 
 class CategoriesActivity : AppCompatActivity() {
@@ -56,6 +57,12 @@ class CategoriesActivity : AppCompatActivity() {
 
     viewModel.categoriesLiveData.observe(this, Observer { categories ->
       adapter.updateCategories(categories)
+    })
+
+    viewModel.progressBarLiveData.observe(this, Observer { status ->
+      if (status!!) progressBar.visibility = View.VISIBLE
+      else
+        progressBar.visibility = View.GONE
     })
 
     viewModel.startDownload()

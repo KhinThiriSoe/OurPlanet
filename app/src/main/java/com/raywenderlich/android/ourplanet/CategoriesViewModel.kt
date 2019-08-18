@@ -46,9 +46,13 @@ class CategoriesViewModel : ViewModel() {
 
     val categoriesLiveData = MutableLiveData<List<EOCategory>>()
 
+    val progressBarLiveData = MutableLiveData<Boolean>()
+
     private val disposables = CompositeDisposable()
 
     fun startDownload() {
+
+        progressBarLiveData.postValue(true)
 
         val eoCategories = EONET.fetchCategories()
             .map { response ->
@@ -57,7 +61,7 @@ class CategoriesViewModel : ViewModel() {
                     EOCategory.fromJson(it)
                 }
             }
-            .share()
+//            .share()
 
 //        categories
 //            .subscribeOn(Schedulers.io())
@@ -82,7 +86,7 @@ class CategoriesViewModel : ViewModel() {
                 updated.map { category ->
                     val eventsForCategory = EONET.filterEventsForCategory(events, category)
 
-                    if (!eventsForCategory.isEmpty()) {
+                    if (eventsForCategory.isNotEmpty()) {
                         val cat = category.copy()
                         cat.events.addAll(eventsForCategory.filter { it.closeDate != null })
                         cat
@@ -90,7 +94,7 @@ class CategoriesViewModel : ViewModel() {
                         category
                     }
                 }
-            }
+            }.doOnComplete{ progressBarLiveData.postValue(false) }
         }
 
 
